@@ -32,7 +32,7 @@ docker run --name urban-pulse-pg -e POSTGRES_PASSWORD=choose_one -p 5433:5432 -d
 # 2. python environment
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-cp .env.example .env          # put the same password in DB_PASSWORD
+cp .env.example .env          # then edit .env: DB_PASSWORD must be the POSTGRES_PASSWORD from step 1
 
 # 3. pipeline, in this order, from the project root
 .venv/bin/python src/extract.py     # about 5 minutes, no API key needed
@@ -48,6 +48,26 @@ The notebook runs from its own folder: `cd notebooks && ../.venv/bin/jupyter not
 To run the SQL by hand: `docker exec -i urban-pulse-pg psql -U postgres -d urban_pulse_db < sql/analysis.sql`.
 
 `extract.py` saves each month separately in `data/raw/parts/`. If it stops half way, run it again and it carries on.
+Every pipeline run rewrites the logs in `docs/` (extraction time, load time), so git will show them as modified.
+
+## Tests
+
+```bash
+.venv/bin/pip install pytest
+.venv/bin/python -m pytest tests -q
+```
+
+`tests/test_requirements.py` checks the data side of the brief (extraction log, cleaning rules, statistics, database counts, the 15 SQL tasks against pandas, no credentials in git). `tests/test_dashboard.py` runs every Streamlit page headlessly and checks the five KPIs against pandas under each filter, the empty state, the connection-error message and that filter values only reach SQL as bind parameters. It needs the database container running.
+
+## Hosted database and deployment
+
+The dashboard needs a PostgreSQL server it can reach from the internet. With a free hosted one (for example Neon):
+
+1. Create the database and copy its host, user, password and database name.
+2. Put them in a git-ignored file (for example `.env.hosted`) with `PGSSLMODE=require`, then load the data: `set -a; source .env.hosted; set +a; .venv/bin/python src/load.py`.
+3. On [Streamlit Community Cloud](https://share.streamlit.io) create an app from this repo, main file `app/Overview.py`. In *Advanced settings* choose Python 3.12 and paste the values from `.streamlit/secrets.toml.example` into **Secrets**.
+
+Never write the password in the code, the README or the repo. Free hosted databases sleep when idle, so the first load can take a few seconds; the app retries each query three times before it shows the connection message.
 
 ## Data window and sample
 
