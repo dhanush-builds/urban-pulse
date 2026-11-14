@@ -1,0 +1,13 @@
+{
+  "loaded_at": "2026-11-14T16:45:11",
+  "clean_csv_rows": 105540,
+  "staging_rows": 105540,
+  "final_rows": 105540,
+  "distinct_unique_keys": 105540,
+  "created_date_range": [
+    "2025-01-01 00:00:19",
+    "2025-06-30 23:59:24"
+  ],
+  "rows_with_resolution_hours": 104115,
+  "sample_rows_matching_csv": "5/5"
+}
