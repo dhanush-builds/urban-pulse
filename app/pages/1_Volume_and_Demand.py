@@ -52,6 +52,7 @@ monthly = need_data(lambda: query(
     f"where {where} group by 1 order by 1", params))
 fig = px.line(monthly, x="month", y="requests", markers=True, color_discrete_sequence=[BLUE])
 fig.update_layout(xaxis_title=None, margin=dict(t=10))
+fig.update_yaxes(rangemode="tozero")      # a cut axis would make the February dip look worse than it is
 st.plotly_chart(fig, width="stretch")
 
 st.subheader("Demand by weekday and hour")
@@ -65,4 +66,4 @@ fig = px.imshow(grid, aspect="auto", color_continuous_scale="Blues",
                 labels=dict(x="hour of day", y="", color="requests"))
 fig.update_layout(margin=dict(t=10))
 st.plotly_chart(fig, width="stretch")
-st.caption("Time is the time the request was created, in New York local time as recorded by the city.")
+st.caption("Hour of the created timestamp exactly as recorded in the dataset.")

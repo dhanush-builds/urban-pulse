@@ -28,6 +28,12 @@ TRIES = 3
 def make_database():
     import os
     name = os.getenv("DB_NAME", "urban_pulse_db")
+    try:
+        # hosted providers hand you a ready database and often do not allow CREATE DATABASE
+        with get_engine().connect():
+            return
+    except OperationalError:
+        pass
     eng = get_engine("postgres").execution_options(isolation_level="AUTOCOMMIT")
     with eng.connect() as conn:
         exists = conn.execute(text("select 1 from pg_database where datname = :n"), {"n": name}).scalar()

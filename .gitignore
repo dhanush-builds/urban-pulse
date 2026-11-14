@@ -5,3 +5,6 @@ __pycache__/
 data/raw/
 data/clean/
 .DS_Store
+.streamlit/secrets.toml
+.env.*
+!.env.example

@@ -60,8 +60,8 @@ for box, col, title in [(left, "complaint_type", "complaint type"), (right, "age
             st.write("No group has enough cases. Lower the minimum.")
         else:
             fig = px.bar(df.iloc[::-1], x="median_hours", y="label", orientation="h",
-                         hover_data=["n"], color_discrete_sequence=[BLUE])
-            fig.update_layout(xaxis_title="median hours", yaxis_title=None, margin=dict(t=10))
+                         hover_data=["n"], color_discrete_sequence=[BLUE], log_x=True)
+            fig.update_layout(xaxis_title="median hours (log scale)", yaxis_title=None, margin=dict(t=10))
             st.plotly_chart(fig, width="stretch")
 
 st.subheader("IQR outlier screen")

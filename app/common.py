@@ -18,7 +18,7 @@ THRESHOLD_HOURS = 72   # our own cut-off, not an official service standard
 
 # Streamlit Cloud keeps credentials in st.secrets, locally they come from .env
 try:
-    for key in ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"]:
+    for key in ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "PGSSLMODE"]:
         if key in st.secrets:
             os.environ[key] = str(st.secrets[key])
 except Exception:
@@ -32,16 +32,16 @@ def engine():
 
 @st.cache_data(ttl=600, show_spinner=False)
 def query(sql, params=None):
-    """Run a parameterized query, trying twice (a sleeping hosted DB needs a moment)."""
+    """Run a parameterized query, trying three times (a sleeping hosted DB needs a few seconds to wake)."""
     last_error = None
-    for attempt in range(2):
+    for attempt in range(3):
         try:
             with engine().connect() as conn:
                 return pd.read_sql(text(sql), conn, params=params or {})
         except Exception as e:
             last_error = e
             engine.clear()
-            time.sleep(3)
+            time.sleep(4)
     raise last_error
 
 

@@ -26,12 +26,13 @@ vol_cut = cats["requests"].quantile(0.75)
 dur_cut = cats["median_hours"].quantile(0.75)
 cats["priority"] = (cats["requests"] >= vol_cut) & (cats["median_hours"] >= dur_cut)
 
+cats["group"] = cats["priority"].map({True: "High volume and long", False: "Other"})
 fig = px.scatter(cats, x="requests", y="median_hours", log_x=True, log_y=True, hover_name="complaint_type",
-                 color="priority", color_discrete_map={True: RUST, False: BLUE})
+                 color="group", color_discrete_map={"High volume and long": RUST, "Other": BLUE})
 fig.add_vline(x=vol_cut, line_dash="dot", line_color="gray")
 fig.add_hline(y=dur_cut, line_dash="dot", line_color="gray")
 fig.update_layout(xaxis_title="requests with a valid duration (log scale)",
-                  yaxis_title="median resolution hours (log scale)", legend_title="High volume and long",
+                  yaxis_title="median resolution hours (log scale)", legend_title=None,
                   margin=dict(t=10))
 st.plotly_chart(fig, width="stretch")
 st.caption(f"Dotted lines are the 75th percentile across complaint types: {vol_cut:,.0f} requests and {dur_cut:,.1f} hours.")
