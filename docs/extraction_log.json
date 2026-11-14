@@ -1,0 +1,80 @@
+{
+  "extracted_at": "2026-11-14T16:36:52",
+  "endpoint": "https://data.cityofnewyork.us/resource/erm2-nwe9.json",
+  "window": [
+    "2025-01-01",
+    "2025-06-30"
+  ],
+  "sampling": "unique_key ending in 12, 29, 37, 58, 64, 91",
+  "order": "created_date, unique_key",
+  "page_size": 5000,
+  "fields": [
+    "unique_key",
+    "created_date",
+    "closed_date",
+    "due_date",
+    "agency",
+    "agency_name",
+    "complaint_type",
+    "descriptor",
+    "location_type",
+    "address_type",
+    "incident_zip",
+    "incident_address",
+    "street_name",
+    "city",
+    "borough",
+    "status",
+    "resolution_description",
+    "resolution_action_updated_date",
+    "community_board",
+    "council_district",
+    "police_precinct",
+    "bbl",
+    "open_data_channel_type",
+    "latitude",
+    "longitude"
+  ],
+  "row_target": 110000,
+  "rows_received": 105540,
+  "duplicate_keys": 0,
+  "first_created": "2025-01-01T00:00:19.000",
+  "last_created": "2025-06-30T23:59:24.000",
+  "months": [
+    {
+      "month": "2025-01",
+      "rows": 20902,
+      "where": "created_date >= '2025-01-01T00:00:00' AND created_date < '2025-02-01T00:00:00' AND (unique_key like '%12' OR unique_key like '%29' OR unique_key like '%37' OR unique_key like '%58' OR unique_key like '%64' OR unique_key like '%91')"
+    },
+    {
+      "month": "2025-02",
+      "rows": 15336,
+      "where": "created_date >= '2025-02-01T00:00:00' AND created_date < '2025-03-01T00:00:00' AND (unique_key like '%12' OR unique_key like '%29' OR unique_key like '%37' OR unique_key like '%58' OR unique_key like '%64' OR unique_key like '%91')"
+    },
+    {
+      "month": "2025-03",
+      "rows": 16901,
+      "where": "created_date >= '2025-03-01T00:00:00' AND created_date < '2025-04-01T00:00:00' AND (unique_key like '%12' OR unique_key like '%29' OR unique_key like '%37' OR unique_key like '%58' OR unique_key like '%64' OR unique_key like '%91')"
+    },
+    {
+      "month": "2025-04",
+      "rows": 16401,
+      "where": "created_date >= '2025-04-01T00:00:00' AND created_date < '2025-05-01T00:00:00' AND (unique_key like '%12' OR unique_key like '%29' OR unique_key like '%37' OR unique_key like '%58' OR unique_key like '%64' OR unique_key like '%91')"
+    },
+    {
+      "month": "2025-05",
+      "rows": 17661,
+      "where": "created_date >= '2025-05-01T00:00:00' AND created_date < '2025-06-01T00:00:00' AND (unique_key like '%12' OR unique_key like '%29' OR unique_key like '%37' OR unique_key like '%58' OR unique_key like '%64' OR unique_key like '%91')"
+    },
+    {
+      "month": "2025-06",
+      "rows": 18339,
+      "where": "created_date >= '2025-06-01T00:00:00' AND created_date < '2025-07-01T00:00:00' AND (unique_key like '%12' OR unique_key like '%29' OR unique_key like '%37' OR unique_key like '%58' OR unique_key like '%64' OR unique_key like '%91')"
+    }
+  ],
+  "limits": [
+    "status and closed_date are as of the extraction date",
+    "sample is systematic by unique_key ending, not random",
+    "the API omits null fields, they were re-added as empty"
+  ]
+}
