@@ -1,9 +1,3 @@
-"""Pull a sample of NYC 311 requests from the Socrata API into data/raw/.
-
-Run from the project root:  python src/extract.py
-Each month is saved on its own in data/raw/parts/, so if the run dies
-you can start it again and it carries on with the missing months.
-"""
 import json
 import os
 import time
@@ -20,13 +14,12 @@ URL = "https://data.cityofnewyork.us/resource/erm2-nwe9.json"
 RAW_DIR = Path("data/raw")
 PART_DIR = RAW_DIR / "parts"
 
-# Jan to Jun 2025. The full window has ~1.76M requests, we want roughly 100k.
+# January to June 2025
 START = date(2025, 1, 1)
 END = date(2025, 6, 30)
 ROW_TARGET = 110_000
 
-# unique_key is a running number, so its last two digits have nothing to do
-# with date, agency or complaint type. Six endings out of 100 gives ~6%.
+# we keep requests whose unique_key ends in one of these numbers (about 6% of rows)
 KEY_ENDINGS = ["12", "29", "37", "58", "64", "91"]
 
 FIELDS = [
@@ -44,21 +37,32 @@ TIMEOUT = 90
 MAX_TRIES = 6
 
 
-def month_starts(first, last):
-    d = date(first.year, first.month, 1)
-    while d <= last:
-        yield d
-        d = date(d.year + (d.month == 12), d.month % 12 + 1, 1)
+def next_month_start(d):
+    if d.month == 12:
+        return date(d.year + 1, 1, 1)
+    return date(d.year, d.month + 1, 1)
+
+
+def list_months():
+    months = []
+    d = date(START.year, START.month, 1)
+    while d <= END:
+        months.append(d)
+        d = next_month_start(d)
+    return months
 
 
 def where_clause(month_start):
-    next_month = date(month_start.year + (month_start.month == 12), month_start.month % 12 + 1, 1)
-    lo = max(month_start, START)
-    # END is inclusive, so the upper bound is the day after it
-    hi = min(next_month, date.fromordinal(END.toordinal() + 1))
-    endings = " OR ".join(f"unique_key like '%{e}'" for e in KEY_ENDINGS)
-    return (f"created_date >= '{lo}T00:00:00' AND created_date < '{hi}T00:00:00' "
-            f"AND ({endings})")
+    next_month = next_month_start(month_start)
+    low = max(month_start, START)
+    # END is included, so the upper limit is the day after it
+    high = min(next_month, date.fromordinal(END.toordinal() + 1))
+    endings = []
+    for e in KEY_ENDINGS:
+        endings.append(f"unique_key like '%{e}'")
+    endings_text = " OR ".join(endings)
+    return (f"created_date >= '{low}T00:00:00' AND created_date < '{high}T00:00:00' "
+            f"AND ({endings_text})")
 
 
 def get_page(params, headers):
@@ -76,7 +80,8 @@ def get_page(params, headers):
 
 def pull_month(month_start, headers):
     where = where_clause(month_start)
-    rows, offset = [], 0
+    rows = []
+    offset = 0
     while True:
         params = {
             "$select": ",".join(FIELDS),
@@ -90,7 +95,7 @@ def pull_month(month_start, headers):
         if len(page) < PAGE_SIZE:
             break
         offset += PAGE_SIZE
-    # the API leaves out keys that are null, so make sure every column exists
+    # the API leaves out empty fields, so add every column back
     return pd.DataFrame(rows).reindex(columns=FIELDS), where
 
 
@@ -104,7 +109,7 @@ def main():
     started = datetime.now()
     month_info = []
     total = 0
-    for m in month_starts(START, END):
+    for m in list_months():
         part = PART_DIR / f"{m:%Y-%m}.csv"
         if part.exists():
             df = pd.read_csv(part, dtype=str, keep_default_na=False)
@@ -121,11 +126,11 @@ def main():
             print("row target reached, stopping")
             break
 
-    raw = pd.concat(
-        [pd.read_csv(PART_DIR / f"{i['month']}.csv", dtype=str, keep_default_na=False)
-         for i in month_info],
-        ignore_index=True,
-    )
+    all_parts = []
+    for info in month_info:
+        part = PART_DIR / (info["month"] + ".csv")
+        all_parts.append(pd.read_csv(part, dtype=str, keep_default_na=False))
+    raw = pd.concat(all_parts, ignore_index=True)
     raw.to_csv(RAW_DIR / "nyc311_raw.csv", index=False)
 
     log = {

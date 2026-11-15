@@ -1,7 +1,7 @@
 import plotly.express as px
 import streamlit as st
 
-from common import BLUE, THRESHOLD_HOURS, empty_state, kpis, need_data, page_header, query, sidebar_filters
+from common import BLUE, THRESHOLD_HOURS, empty_state, kpis, page_header, query, sidebar_filters
 
 st.set_page_config(page_title="Urban Pulse", layout="wide")
 
@@ -32,17 +32,17 @@ else:
     c5.metric(f"Over {THRESHOLD_HOURS} hours", "n/a")
 
 st.subheader("Requests per month")
-monthly = need_data(lambda: query(
+monthly = query(
     f"select created_year_month as month, count(*) as requests from service_requests "
-    f"where {where} group by 1 order by 1", params))
+    f"where {where} group by 1 order by 1", params)
 fig = px.bar(monthly, x="month", y="requests", color_discrete_sequence=[BLUE])
 fig.update_layout(xaxis_title=None, yaxis_title="requests", margin=dict(t=10))
 st.plotly_chart(fig, width="stretch")
 
 st.subheader("Record preview")
-preview = need_data(lambda: query(
+preview = query(
     f"select unique_key, created_date, closed_date, agency, complaint_type, borough, status, resolution_hours "
-    f"from service_requests where {where} order by created_date desc limit 200", params))
+    f"from service_requests where {where} order by created_date desc limit 200", params)
 st.caption("The 200 most recent matching requests.")
 st.dataframe(preview, hide_index=True, width="stretch")
 st.download_button("Download this preview (CSV)", preview.to_csv(index=False), "urban_pulse_preview.csv", "text/csv")

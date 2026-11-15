@@ -2,7 +2,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from common import BLUE, RUST, empty_state, kpis, need_data, page_header, query, sidebar_filters
+from common import BLUE, RUST, empty_state, kpis, page_header, query, sidebar_filters
 
 st.set_page_config(page_title="Resolution time", layout="wide")
 page_header("Resolution time",
@@ -12,13 +12,16 @@ page_header("Resolution time",
 where, params = sidebar_filters()
 empty_state(kpis(where, params)["total"])
 
-hours = need_data(lambda: query(
-    f"select resolution_hours from service_requests where {where} and resolution_hours is not null", params))["resolution_hours"]
+hours_table = query(
+    f"select resolution_hours from service_requests where {where} and resolution_hours is not null", params)
+hours = hours_table["resolution_hours"]
 if hours.empty:
     st.info("None of the selected requests has a valid resolution time.")
     st.stop()
 
-q1, med, q3 = hours.quantile([0.25, 0.5, 0.75])
+q1 = hours.quantile(0.25)
+med = hours.quantile(0.5)
+q3 = hours.quantile(0.75)
 iqr = q3 - q1
 high_fence = q3 + 1.5 * iqr
 
@@ -47,22 +50,32 @@ st.caption(f"{(hours > cap).sum():,} requests above {cap:,} h are not shown in t
 
 st.subheader("Median resolution by complaint type and agency")
 min_n = st.number_input("Minimum valid cases per group", 20, 2000, 100, step=20)
-left, right = st.columns(2)
-for box, col, title in [(left, "complaint_type", "complaint type"), (right, "agency", "agency")]:
+
+
+def slowest_chart(box, col, title):
     sql = (f"select {col} as label, count(resolution_hours) as n, "
            f"percentile_cont(0.5) within group (order by resolution_hours) as median_hours "
            f"from service_requests where {where} and resolution_hours is not null "
            f"group by 1 having count(resolution_hours) >= :min_n order by 3 desc limit 15")
-    df = need_data(lambda: query(sql, {**params, "min_n": int(min_n)}))
+    group_params = params.copy()
+    group_params["min_n"] = int(min_n)
+    df = query(sql, group_params)
     with box:
         st.markdown(f"**Slowest 15 by {title}**")
         if df.empty:
             st.write("No group has enough cases. Lower the minimum.")
         else:
-            fig = px.bar(df.iloc[::-1], x="median_hours", y="label", orientation="h",
+            # reversed, so the slowest bar is drawn at the top
+            df = df.sort_index(ascending=False)
+            fig = px.bar(df, x="median_hours", y="label", orientation="h",
                          hover_data=["n"], color_discrete_sequence=[BLUE], log_x=True)
             fig.update_layout(xaxis_title="median hours (log scale)", yaxis_title=None, margin=dict(t=10))
             st.plotly_chart(fig, width="stretch")
+
+
+left, right = st.columns(2)
+slowest_chart(left, "complaint_type", "complaint type")
+slowest_chart(right, "agency", "agency")
 
 st.subheader("IQR outlier screen")
 n_out = int((hours > high_fence).sum())
@@ -70,10 +83,12 @@ st.write(f"Upper fence = Q3 + 1.5 x IQR = **{high_fence:,.1f} h**. "
          f"{n_out:,} requests ({100 * n_out / len(hours):.1f}% of valid durations) are above it. "
          "The lower fence is below zero, so nothing can fall under it. "
          "These are cases to look at, not rows to throw away: building repairs and tree work can take months.")
-by_agency = need_data(lambda: query(
+fence_params = params.copy()
+fence_params["fence"] = float(high_fence)
+by_agency = query(
     f"select agency, count(*) as valid_cases, count(*) filter (where resolution_hours > :fence) as above_fence "
     f"from service_requests where {where} and resolution_hours is not null "
-    f"group by 1 having count(*) >= 50 order by 3 desc", {**params, "fence": float(high_fence)}))
+    f"group by 1 having count(*) >= 50 order by 3 desc", fence_params)
 if not by_agency.empty:
     by_agency["pct_above_fence"] = (100 * by_agency["above_fence"] / by_agency["valid_cases"]).round(1)
     fig = px.bar(by_agency, x="agency", y="pct_above_fence", hover_data=["valid_cases", "above_fence"],

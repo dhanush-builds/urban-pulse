@@ -1,7 +1,7 @@
 import plotly.express as px
 import streamlit as st
 
-from common import BLUE, RUST, empty_state, kpis, need_data, page_header, query, sidebar_filters
+from common import BLUE, RUST, empty_state, kpis, page_header, query, sidebar_filters
 
 st.set_page_config(page_title="Complaint priorities", layout="wide")
 page_header("Complaint priorities",
@@ -12,11 +12,13 @@ where, params = sidebar_filters()
 empty_state(kpis(where, params)["total"])
 
 min_n = st.number_input("Minimum valid cases per complaint type", 20, 1000, 100, step=20)
-cats = need_data(lambda: query(
+type_params = params.copy()
+type_params["min_n"] = int(min_n)
+cats = query(
     f"select complaint_type, count(*) as requests, "
     f"percentile_cont(0.5) within group (order by resolution_hours) as median_hours "
     f"from service_requests where {where} and resolution_hours is not null "
-    f"group by 1 having count(*) >= :min_n", {**params, "min_n": int(min_n)}))
+    f"group by 1 having count(*) >= :min_n", type_params)
 
 if len(cats) < 4:
     st.info("Too few complaint types with enough cases to compare. Lower the minimum or widen the filters.")

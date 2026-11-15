@@ -1,8 +1,3 @@
-"""Descriptive statistics, skewness and IQR outlier screen for resolution_hours.
-
-Reads  data/clean/nyc311_clean.csv
-Writes docs/stats_report.md, docs/stats_summary.json, docs/figures/*.png
-"""
 import json
 from pathlib import Path
 
@@ -17,9 +12,12 @@ hours = df["resolution_hours"].dropna()
 fig_dir = Path("docs/figures")
 fig_dir.mkdir(parents=True, exist_ok=True)
 
-q1, q2, q3 = hours.quantile([0.25, 0.5, 0.75])
+q1 = hours.quantile(0.25)
+q2 = hours.quantile(0.5)
+q3 = hours.quantile(0.75)
 iqr = q3 - q1
-low_fence, high_fence = q1 - 1.5 * iqr, q3 + 1.5 * iqr
+low_fence = q1 - 1.5 * iqr
+high_fence = q3 + 1.5 * iqr
 n_high = int((hours > high_fence).sum())
 n_low = int((hours < low_fence).sum())
 
@@ -27,7 +25,7 @@ summary = {
     "n_valid": len(hours),
     "mean": hours.mean(),
     "median": q2,
-    "mode": hours.round(0).mode().iloc[0],      # rounded to whole hours, raw values rarely repeat
+    "mode": hours.round(0).mode().iloc[0],  # whole hours, because exact values rarely repeat
     "min": hours.min(),
     "max": hours.max(),
     "range": hours.max() - hours.min(),
@@ -48,13 +46,19 @@ summary = {
     "pct_above_high_fence": 100 * n_high / len(hours),
     "share_over_72h": 100 * (hours > 72).mean(),
 }
-summary = {k: (round(float(v), 3) if not isinstance(v, int) else v) for k, v in summary.items()}
+rounded = {}
+for key in summary:
+    value = summary[key]
+    if isinstance(value, int):
+        rounded[key] = value
+    else:
+        rounded[key] = round(float(value), 3)
+summary = rounded
 Path("docs/stats_summary.json").write_text(json.dumps(summary, indent=2))
 
-# the fence is negative here, so no low outliers are possible
 print(summary)
 
-# ---- charts ----
+# charts
 plt.figure(figsize=(8, 4))
 plt.hist(hours[hours <= high_fence], bins=50, color="#3b6ea5")
 plt.xlabel("resolution hours (cut at the upper fence)")
@@ -86,20 +90,28 @@ top_agencies = df["agency"].value_counts().head(8).index
 sub = df[df["agency"].isin(top_agencies) & df["resolution_hours"].notna()]
 order = sub.groupby("agency")["resolution_hours"].median().sort_values().index
 plt.figure(figsize=(9, 4.5))
-plt.boxplot([sub.loc[sub["agency"] == a, "resolution_hours"] for a in order],
-            tick_labels=list(order), showfliers=False)
+agency_names = list(order)
+agency_hours = []
+for name in agency_names:
+    agency_hours.append(sub.loc[sub["agency"] == name, "resolution_hours"])
+plt.boxplot(agency_hours, tick_labels=agency_names, showfliers=False)
 plt.ylabel("resolution hours (outliers hidden)")
 plt.title("Resolution time by agency (8 busiest)")
 plt.tight_layout()
 plt.savefig(fig_dir / "resolution_boxplot_by_agency.png", dpi=130)
 plt.close()
 
-# ---- other numeric columns ----
+# other numeric columns
 other = df[["latitude", "longitude", "created_hour"]].describe().round(4)
 
-# ---- report ----
+# report
 s = summary
-skew_word = "strongly right-skewed" if s["skewness"] > 1 else "moderately skewed" if s["skewness"] > 0.5 else "roughly symmetric"
+if s["skewness"] > 1:
+    skew_word = "strongly right-skewed"
+elif s["skewness"] > 0.5:
+    skew_word = "moderately skewed"
+else:
+    skew_word = "roughly symmetric"
 lines = f"""# Statistical check: resolution_hours
 
 Valid resolution durations: **{s['n_valid']:,}** (closed requests where the closed date is not before the created date).

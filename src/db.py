@@ -8,7 +8,7 @@ load_dotenv()
 
 
 def get_engine(database=None):
-    """Connection settings come from .env (or Streamlit secrets copied into env vars)."""
+    # the settings come from .env, or from Streamlit secrets copied into environment variables
     user = os.getenv("DB_USER", "postgres")
     pw = quote_plus(os.getenv("DB_PASSWORD", ""))
     host = os.getenv("DB_HOST", "127.0.0.1")

@@ -100,14 +100,12 @@ HAVING COUNT(*) >= 100
 ORDER BY above_high_fence DESC;
 
 -- 12. Skewness and distribution (population skewness, then time bands)
-WITH m AS (
-    SELECT AVG(resolution_hours) AS mu, STDDEV_POP(resolution_hours) AS sd
-    FROM service_requests WHERE resolution_hours IS NOT NULL
-)
-SELECT ROUND((AVG(POWER(s.resolution_hours - m.mu, 3)) / POWER(m.sd, 3))::numeric, 2) AS skewness
-FROM service_requests s CROSS JOIN m
-WHERE s.resolution_hours IS NOT NULL
-GROUP BY m.sd;
+SELECT ROUND((
+           AVG(POWER(resolution_hours - (SELECT AVG(resolution_hours) FROM service_requests), 3))
+           / POWER((SELECT STDDEV_POP(resolution_hours) FROM service_requests), 3)
+       )::numeric, 2) AS skewness
+FROM service_requests
+WHERE resolution_hours IS NOT NULL;
 
 SELECT CASE
            WHEN resolution_hours <= 1   THEN '1  up to 1 h'
