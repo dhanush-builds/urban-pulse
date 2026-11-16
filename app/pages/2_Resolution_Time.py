@@ -63,7 +63,6 @@ def slowest_chart(box, col, title):
         if df.empty:
             st.write("No group has enough cases. Lower the minimum.")
         else:
-            # reversed, so the slowest bar is drawn at the top
             df = df.sort_index(ascending=False)
             fig = px.bar(df, x="median_hours", y="label", orientation="h",
                          hover_data=["n"], color_discrete_sequence=[BLUE])

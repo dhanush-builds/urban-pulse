@@ -25,7 +25,7 @@ summary = {
     "n_valid": len(hours),
     "mean": hours.mean(),
     "median": q2,
-    "mode": hours.round(0).mode().iloc[0],  # whole hours, exact values rarely repeat
+    "mode": hours.round(0).mode().iloc[0],
     "min": hours.min(),
     "max": hours.max(),
     "range": hours.max() - hours.min(),
@@ -46,7 +46,6 @@ summary = {
     "pct_above_high_fence": 100 * n_high / len(hours),
     "share_over_72h": 100 * (hours > 72).mean(),
 }
-# round every number to 3 decimals, counts stay whole
 rounded = {}
 for key in summary:
     value = summary[key]
@@ -59,7 +58,6 @@ Path("docs/stats_summary.json").write_text(json.dumps(summary, indent=2))
 
 print(summary)
 
-# charts: histograms and boxplots
 plt.figure(figsize=(8, 4))
 plt.hist(hours[hours <= high_fence], bins=50, color="#3b6ea5")
 plt.xlabel("resolution hours (cut at the upper fence)")
@@ -86,14 +84,11 @@ plt.tight_layout()
 plt.savefig(fig_dir / "resolution_boxplot.png", dpi=130)
 plt.close()
 
-# only the 8 agencies with the most requests
 top_agencies = df["agency"].value_counts().head(8).index
 sub = df[df["agency"].isin(top_agencies) & df["resolution_hours"].notna()]
-# agencies sorted by their median time
 order = sub.groupby("agency")["resolution_hours"].median().sort_values().index
 plt.figure(figsize=(9, 4.5))
 agency_names = list(order)
-# one list of hours per agency, in the same order as the names
 agency_hours = []
 for name in agency_names:
     agency_hours.append(sub.loc[sub["agency"] == name, "resolution_hours"])

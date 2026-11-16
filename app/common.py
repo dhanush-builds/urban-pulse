@@ -13,9 +13,8 @@ from db import get_engine
 
 BLUE = "#1f5f8b"
 RUST = "#c8553d"
-THRESHOLD_HOURS = 72  # our own cut-off, not an official service standard
+THRESHOLD_HOURS = 72
 
-# Streamlit Cloud keeps the database settings in st.secrets, locally they come from .env
 try:
     for key in ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "PGSSLMODE"]:
         if key in st.secrets:
@@ -61,7 +60,6 @@ def sidebar_filters():
     chosen_types = st.sidebar.multiselect("Complaint type", types, key="types", placeholder="All complaint types")
     st.sidebar.caption("Leave a box empty to include everything.")
 
-    # date_input gives one date while the user is still picking the second one
     if isinstance(dates, tuple):
         if len(dates) == 2:
             start = dates[0]
@@ -79,7 +77,6 @@ def sidebar_filters():
     where = "created_date >= :start and created_date < :end"
     params = {"start": start, "end": end + timedelta(days=1)}
     if chosen_boroughs:
-        # = any(list) matches any value in the list
         where += " and borough = any(:boroughs)"
         params["boroughs"] = chosen_boroughs
     if chosen_types:

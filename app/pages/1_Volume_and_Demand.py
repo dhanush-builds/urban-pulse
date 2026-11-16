@@ -20,7 +20,6 @@ def grouped(col, limit=None):
 
 def bars(df, horizontal=True, height=None):
     if horizontal:
-        # reversed, so the biggest bar is drawn at the top
         df = df.sort_index(ascending=False)
         fig = px.bar(df, x="requests", y="label", orientation="h", color_discrete_sequence=[BLUE])
     else:
@@ -56,7 +55,6 @@ sql = sql + " where " + where + " group by 1 order by 1"
 monthly = query(sql, params)
 fig = px.line(monthly, x="month", y="requests", markers=True, color_discrete_sequence=[BLUE])
 fig.update_layout(xaxis_title=None, margin=dict(t=10))
-# start the axis at zero, a cut axis would make the February dip look worse than it is
 fig.update_yaxes(rangemode="tozero")
 st.plotly_chart(fig, width="stretch")
 

@@ -1,11 +1,6 @@
--- Urban Pulse: the 15 analyst tasks, PostgreSQL.
--- "valid" resolution = resolution_hours is not null (closed, dates in order).
-
--- 1. Total distinct request volume
 SELECT COUNT(DISTINCT unique_key) AS total_requests
 FROM service_requests;
 
--- 2. Top 10 complaint categories
 SELECT complaint_type, COUNT(*) AS requests,
        ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 1) AS pct
 FROM service_requests
@@ -13,41 +8,34 @@ GROUP BY complaint_type
 ORDER BY requests DESC
 LIMIT 10;
 
--- 3. Agency workload
 SELECT agency, COUNT(*) AS requests,
        ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 1) AS pct
 FROM service_requests
 GROUP BY agency
 ORDER BY requests DESC;
 
--- 4. Volume by borough
 SELECT borough, COUNT(*) AS requests,
        ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 1) AS pct
 FROM service_requests
 GROUP BY borough
 ORDER BY requests DESC;
 
--- 5. Monthly trend
 SELECT created_year_month AS month, COUNT(*) AS requests
 FROM service_requests
 GROUP BY created_year_month
 ORDER BY month;
 
--- 6. Demand by weekday and hour
 SELECT created_weekday_num, created_weekday, created_hour, COUNT(*) AS requests
 FROM service_requests
 GROUP BY created_weekday_num, created_weekday, created_hour
 ORDER BY created_weekday_num, created_hour;
 
--- 7. Status distribution
 SELECT status, COUNT(*) AS requests,
        ROUND(100.0 * COUNT(*) / SUM(COUNT(*)) OVER (), 2) AS pct
 FROM service_requests
 GROUP BY status
 ORDER BY requests DESC;
 
--- 8. Descriptive statistics of valid resolution hours
--- percentile_cont finds the value at a given position in the sorted list (0.5 = the middle, the median)
 SELECT COUNT(resolution_hours)                                           AS n,
        ROUND(AVG(resolution_hours)::numeric, 2)                          AS mean,
        ROUND((PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY resolution_hours))::numeric, 2) AS median,
@@ -61,8 +49,6 @@ SELECT COUNT(resolution_hours)                                           AS n,
 FROM service_requests
 WHERE resolution_hours IS NOT NULL;
 
--- 9. Median resolution by complaint category (at least 100 valid cases)
--- percentile_cont(0.5) gives the middle resolution time inside each complaint type
 SELECT complaint_type, COUNT(resolution_hours) AS n,
        ROUND((PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY resolution_hours))::numeric, 1) AS median_hours
 FROM service_requests
@@ -71,8 +57,6 @@ GROUP BY complaint_type
 HAVING COUNT(resolution_hours) >= 100
 ORDER BY median_hours DESC;
 
--- 10. Median resolution by agency
--- percentile_cont(0.5) gives the middle resolution time inside each agency
 SELECT agency, COUNT(resolution_hours) AS n,
        ROUND((PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY resolution_hours))::numeric, 1) AS median_hours
 FROM service_requests
@@ -81,8 +65,6 @@ GROUP BY agency
 HAVING COUNT(resolution_hours) >= 100
 ORDER BY median_hours DESC;
 
--- 11. IQR outlier investigation: fences overall, then who owns the outliers
--- percentile_cont finds Q1 and Q3 to build the fences; FILTER counts only the rows above the upper fence
 WITH q AS (
     SELECT PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY resolution_hours) AS q1,
            PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY resolution_hours) AS q3
@@ -103,7 +85,6 @@ GROUP BY s.agency, f.high
 HAVING COUNT(*) >= 100
 ORDER BY above_high_fence DESC;
 
--- 12. Skewness and distribution (population skewness, then time bands)
 SELECT ROUND((
            AVG(POWER(resolution_hours - (SELECT AVG(resolution_hours) FROM service_requests), 3))
            / POWER((SELECT STDDEV_POP(resolution_hours) FROM service_requests), 3)
@@ -111,7 +92,6 @@ SELECT ROUND((
 FROM service_requests
 WHERE resolution_hours IS NOT NULL;
 
--- SUM(COUNT(*)) OVER () is a window: it adds up all the band counts so each band can show its share in percent
 SELECT CASE
            WHEN resolution_hours <= 1   THEN '1  up to 1 h'
            WHEN resolution_hours <= 24  THEN '2  1-24 h'
@@ -127,8 +107,6 @@ WHERE resolution_hours IS NOT NULL
 GROUP BY band
 ORDER BY band;
 
--- 13. Geographic concentration: coordinate coverage by borough, then a 0.01 degree grid
--- (one police-station coordinate holds ~2.7% of rows, so flag_repeated_coords rows are left out of the grid)
 SELECT borough, COUNT(*) AS requests,
        COUNT(latitude) AS with_coordinates,
        ROUND(100.0 * COUNT(latitude) / COUNT(*), 1) AS pct_with_coordinates
@@ -144,7 +122,6 @@ GROUP BY lat_cell, lon_cell
 ORDER BY requests DESC
 LIMIT 15;
 
--- 14. Recorded closure rate by agency and by borough
 SELECT 'agency' AS grouping, agency AS name, COUNT(*) AS requests,
        ROUND(100.0 * SUM(is_closed::int) / COUNT(*), 1) AS closure_pct
 FROM service_requests
@@ -156,8 +133,6 @@ FROM service_requests
 GROUP BY borough
 ORDER BY grouping, closure_pct;
 
--- 15. High volume AND long median resolution (both above the 75th percentile across categories)
--- percentile_cont(0.5) gives each type's median; percentile_cont(0.75) then sets the "high" cut-off across types
 WITH cat AS (
     SELECT complaint_type, COUNT(*) AS requests,
            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY resolution_hours) AS median_hours

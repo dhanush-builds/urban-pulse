@@ -1,6 +1,3 @@
--- Final table. src/load.py builds service_requests_staging from this same
--- definition, checks it, then swaps it in.
-
 CREATE TABLE service_requests (
     unique_key                      BIGINT PRIMARY KEY,
     created_date                    TIMESTAMP NOT NULL,

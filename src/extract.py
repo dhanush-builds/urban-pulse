@@ -14,12 +14,10 @@ URL = "https://data.cityofnewyork.us/resource/erm2-nwe9.json"
 RAW_DIR = Path("data/raw")
 PART_DIR = RAW_DIR / "parts"
 
-# January to June 2025
 START = date(2025, 1, 1)
 END = date(2025, 6, 30)
 ROW_TARGET = 110_000
 
-# we keep requests whose unique_key ends in one of these numbers (about 6% of rows)
 KEY_ENDINGS = ["12", "29", "37", "58", "64", "91"]
 
 FIELDS = [
@@ -55,7 +53,6 @@ def list_months():
 def where_clause(month_start):
     next_month = next_month_start(month_start)
     low = max(month_start, START)
-    # END is included, so the upper limit is the day after it
     high = min(next_month, END + timedelta(days=1))
     low_text = str(low) + "T00:00:00"
     high_text = str(high) + "T00:00:00"
@@ -67,7 +64,6 @@ def where_clause(month_start):
 
 
 def get_page(params, headers):
-    # the API sometimes times out or fails, so wait and try again
     for attempt in range(1, MAX_TRIES + 1):
         try:
             r = requests.get(URL, params=params, headers=headers, timeout=TIMEOUT)
@@ -97,7 +93,6 @@ def pull_month(month_start, headers):
         if len(page) < PAGE_SIZE:
             break
         offset += PAGE_SIZE
-    # the API leaves out empty fields, so add every column back
     return pd.DataFrame(rows).reindex(columns=FIELDS), where
 
 

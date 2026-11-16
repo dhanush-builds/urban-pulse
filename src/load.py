@@ -16,14 +16,12 @@ BATCH = 1000
 
 def make_database():
     name = os.getenv("DB_NAME", "urban_pulse_db")
-    # hosted databases already exist and often do not allow CREATE DATABASE
     try:
         with get_engine().connect():
             return
     except OperationalError:
         pass
 
-    # create database cannot run inside a transaction, so turn that off here
     engine = get_engine("postgres").execution_options(isolation_level="AUTOCOMMIT")
     with engine.connect() as conn:
         exists = conn.execute(text("select 1 from pg_database where datname = :n"), {"n": name}).scalar()
@@ -37,7 +35,6 @@ def read_clean():
     for col in ["created_date", "closed_date", "due_date", "resolution_action_updated_date"]:
         df[col] = pd.to_datetime(df[col])
     df["council_district"] = df["council_district"].astype("Int64")
-    # use None instead of NaN/NaT so the database gets real NULLs
     return df.astype(object).where(df.notna(), None)
 
 

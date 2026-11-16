@@ -28,7 +28,6 @@ cells = query(sql, params)
 if cells.empty:
     st.info("No usable coordinates for this selection.")
 else:
-    # reversed, so the busiest bar is drawn at the top
     cells = cells.sort_index(ascending=False)
     fig = px.bar(cells, x="requests", y="cell", orientation="h", color_discrete_sequence=[BLUE])
     fig.update_layout(xaxis_title="requests", yaxis_title="cell (latitude, longitude)", margin=dict(t=10))

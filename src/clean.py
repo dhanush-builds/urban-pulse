@@ -7,7 +7,6 @@ import pandas as pd
 RAW = Path("data/raw/nyc311_raw.csv")
 OUT = Path("data/clean/nyc311_clean.csv")
 
-# rough box around the five boroughs
 LAT_MIN = 40.45
 LAT_MAX = 40.95
 LON_MIN = -74.30
@@ -33,14 +32,12 @@ def tidy_text(df, changes):
         before = df[col].copy()
         df[col] = df[col].str.replace(r"\s+", " ", regex=True).str.strip()
         df[col] = df[col].replace("", np.nan)
-        # only count cells that really changed
         edited = (before != df[col]) & df[col].notna()
         changes["whitespace fixed in " + col] = int(edited.sum())
     return df
 
 
 def use_commonest_spelling(df, col, changes):
-    # 'Noise - Street/Sidewalk' and 'NOISE - STREET/SIDEWALK' become the most common spelling
     lower = df[col].str.lower()
     best = {}
     for word in lower.dropna().unique():
@@ -73,10 +70,8 @@ def convert_types(df, changes):
         changes["non-numeric " + col] = int(bad.sum())
         df[col] = number
     district = pd.to_numeric(df["council_district"], errors="coerce")
-    # Int64 keeps whole numbers (5, not 5.0) when some are empty
     df["council_district"] = district.astype("Int64")
 
-    # a zip code must have 5 digits
     bad_zip = df["incident_zip"].notna() & ~df["incident_zip"].str.fullmatch(r"\d{5}", na=False)
     changes["invalid zip set to null"] = int(bad_zip.sum())
     df.loc[bad_zip, "incident_zip"] = np.nan
@@ -84,7 +79,6 @@ def convert_types(df, changes):
 
 
 def add_flags(df, changes, extracted_at):
-    # odd rows only get a flag, the values stay
     df["flag_closed_before_created"] = df["closed_date"] < df["created_date"]
     df["flag_future_date"] = (df["created_date"] > extracted_at) | (df["closed_date"] > extracted_at)
     df["flag_closed_status_no_date"] = (df["status"] == "Closed") & df["closed_date"].isna()
@@ -99,7 +93,6 @@ def add_flags(df, changes, extracted_at):
 
     df["flag_closed_at_creation"] = df["closed_date"] == df["created_date"]
 
-    # one point (a police station) has about 2.7% of all rows, a placeholder location
     point = df["latitude"].astype(str) + "," + df["longitude"].astype(str)
     rows_at_point = point.map(point.value_counts())
     df["flag_repeated_coords"] = (rows_at_point > 1000) & ~df["flag_missing_coords"]
@@ -119,7 +112,6 @@ def add_derived_columns(df, changes):
     df["resolution_hours"] = hours.where(usable).round(3)
     changes["rows with a valid resolution_hours"] = int(df["resolution_hours"].notna().sum())
 
-    # no valid duration means no answer, so it stays empty
     has_hours = df["resolution_hours"].notna()
     df["is_over_72h"] = None
     df.loc[has_hours, "is_over_72h"] = df["resolution_hours"] > 72
@@ -129,7 +121,7 @@ def add_derived_columns(df, changes):
     df["created_month"] = created.dt.month
     df["created_year_month"] = created.dt.strftime("%Y-%m")
     df["created_weekday"] = created.dt.day_name()
-    df["created_weekday_num"] = created.dt.day_of_week  # Monday = 0
+    df["created_weekday_num"] = created.dt.day_of_week
     df["created_hour"] = created.dt.hour
     return df
 
