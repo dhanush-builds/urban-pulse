@@ -129,7 +129,6 @@ def add_derived_columns(df, changes):
 def main():
     df = pd.read_csv(RAW, dtype=str, keep_default_na=False)
     n_raw = len(df)
-    print("raw rows:", n_raw)
 
     changes = {}
     extracted_at = read_extracted_at()
@@ -143,7 +142,6 @@ def main():
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(OUT, index=False)
-    print("clean rows:", len(df), "->", OUT)
 
     log = {"raw_rows": n_raw, "clean_rows": len(df), "changes": changes}
     Path("docs/cleaning_log.json").write_text(json.dumps(log, indent=2))

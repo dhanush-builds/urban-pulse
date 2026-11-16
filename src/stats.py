@@ -56,8 +56,6 @@ for key in summary:
 summary = rounded
 Path("docs/stats_summary.json").write_text(json.dumps(summary, indent=2))
 
-print(summary)
-
 plt.figure(figsize=(8, 4))
 plt.hist(hours[hours <= high_fence], bins=50, color="#3b6ea5")
 plt.xlabel("resolution hours (cut at the upper fence)")

@@ -69,9 +69,8 @@ def get_page(params, headers):
             r = requests.get(URL, params=params, headers=headers, timeout=TIMEOUT)
             if r.status_code == 200:
                 return r.json()
-            print(f"  http {r.status_code}, try {attempt}")
-        except requests.RequestException as e:
-            print(f"  {type(e).__name__}, try {attempt}")
+        except requests.RequestException:
+            pass
         time.sleep(5 * attempt)
     raise RuntimeError("API kept failing, giving up on this page")
 
@@ -111,16 +110,12 @@ def main():
         if part.exists():
             df = pd.read_csv(part, dtype=str, keep_default_na=False)
             where = where_clause(m)
-            print(f"{m:%Y-%m}: reusing {len(df):,} rows from disk")
         else:
-            print(f"{m:%Y-%m}: downloading...")
             df, where = pull_month(m, headers)
             df.to_csv(part, index=False)
-            print(f"{m:%Y-%m}: {len(df):,} rows")
         month_info.append({"month": f"{m:%Y-%m}", "rows": len(df), "where": where})
         total += len(df)
         if total >= ROW_TARGET:
-            print("row target reached, stopping")
             break
 
     all_parts = []
@@ -153,7 +148,6 @@ def main():
     Path("docs").mkdir(exist_ok=True)
     with open("docs/extraction_log.json", "w") as f:
         json.dump(log, f, indent=2)
-    print(f"done: {len(raw):,} rows -> data/raw/nyc311_raw.csv")
 
 
 if __name__ == "__main__":

@@ -27,7 +27,6 @@ def make_database():
         exists = conn.execute(text("select 1 from pg_database where datname = :n"), {"n": name}).scalar()
         if not exists:
             conn.execute(text(f'create database "{name}"'))
-            print("created database", name)
 
 
 def read_clean():
@@ -65,9 +64,6 @@ def insert_batches(engine, df):
     for start in range(0, total, BATCH):
         batch = df.iloc[start:start + BATCH]
         batch.to_sql("service_requests_staging", engine, if_exists="append", index=False)
-        if (start // BATCH) % 10 == 0:
-            loaded = min(start + BATCH, total)
-            print(f"  loaded {loaded:,} / {total:,}")
 
 
 def same_number(db_value, csv_value):
@@ -149,15 +145,11 @@ def main():
     create_sql, index_sql = split_schema()
     create_staging_table(engine, create_sql)
 
-    print("loading", n_csv, "rows into staging")
     insert_batches(engine, df)
 
     problems, numbers = validate_staging(engine, df)
     if len(problems) > 0:
-        print("validation failed, old table untouched:")
-        for problem in problems:
-            print(" -", problem)
-        raise SystemExit(1)
+        raise SystemExit("validation failed, old table untouched: " + "; ".join(problems))
 
     publish_staging(engine, index_sql)
 
@@ -175,8 +167,6 @@ def main():
         "sample_rows_matching_csv": f"{numbers['sample_ok']}/5",
     }
     Path("docs/load_log.json").write_text(json.dumps(log, indent=2))
-    print("published service_requests:", n_final, "rows")
-    print(json.dumps(log, indent=2))
 
 
 if __name__ == "__main__":
