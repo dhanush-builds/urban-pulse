@@ -1,6 +1,5 @@
 import os
 import sys
-import time
 from datetime import timedelta
 from pathlib import Path
 
@@ -25,23 +24,12 @@ except FileNotFoundError:
     pass
 
 
-@st.cache_resource
-def engine():
-    return get_engine()
+engine = get_engine()
 
 
-@st.cache_data(ttl=600, show_spinner=False)
 def run_query(sql, params):
-    # try three times, a sleeping hosted database needs a few seconds to wake up
-    last_error = None
-    for attempt in range(3):
-        try:
-            with engine().connect() as conn:
-                return pd.read_sql(text(sql), conn, params=params)
-        except SQLAlchemyError as error:
-            last_error = error
-            time.sleep(4)
-    raise last_error
+    with engine.connect() as conn:
+        return pd.read_sql(text(sql), conn, params=params)
 
 
 def query(sql, params=None):
@@ -91,6 +79,7 @@ def sidebar_filters():
     where = "created_date >= :start and created_date < :end"
     params = {"start": start, "end": end + timedelta(days=1)}
     if chosen_boroughs:
+        # = any(list) matches any value in the list
         where += " and borough = any(:boroughs)"
         params["boroughs"] = chosen_boroughs
     if chosen_types:
@@ -100,14 +89,12 @@ def sidebar_filters():
 
 
 def kpis(where, params):
-    sql = f"""
-        select count(distinct unique_key)                                   as total,
-               count(*)                                                     as rows_n,
-               coalesce(sum(is_closed::int), 0)                             as closed_n,
-               count(resolution_hours)                                      as valid_n,
-               count(*) filter (where resolution_hours > {THRESHOLD_HOURS}) as over_n,
-               percentile_cont(0.5) within group (order by resolution_hours) as median_hours
-        from service_requests where {where}"""
+    sql = "select count(distinct unique_key) as total, count(*) as rows_n, "
+    sql = sql + "coalesce(sum(is_closed::int), 0) as closed_n, "
+    sql = sql + "count(resolution_hours) as valid_n, "
+    sql = sql + "count(*) filter (where resolution_hours > " + str(THRESHOLD_HOURS) + ") as over_n, "
+    sql = sql + "percentile_cont(0.5) within group (order by resolution_hours) as median_hours "
+    sql = sql + "from service_requests where " + where
     return query(sql, params).iloc[0]
 
 

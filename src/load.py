@@ -1,19 +1,17 @@
 import json
 import os
-import time
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 from sqlalchemy import text
-from sqlalchemy.exc import OperationalError, SQLAlchemyError
+from sqlalchemy.exc import OperationalError
 
 from db import get_engine
 
 CSV = Path("data/clean/nyc311_clean.csv")
 SCHEMA = Path("sql/schema.sql")
 BATCH = 1000
-TRIES = 3
 
 
 def make_database():
@@ -25,6 +23,7 @@ def make_database():
     except OperationalError:
         pass
 
+    # create database cannot run inside a transaction, so turn that off here
     engine = get_engine("postgres").execution_options(isolation_level="AUTOCOMMIT")
     with engine.connect() as conn:
         exists = conn.execute(text("select 1 from pg_database where datname = :n"), {"n": name}).scalar()
@@ -68,16 +67,7 @@ def insert_batches(engine, df):
     total = len(df)
     for start in range(0, total, BATCH):
         batch = df.iloc[start:start + BATCH]
-        for attempt in range(1, TRIES + 1):
-            try:
-                batch.to_sql("service_requests_staging", engine, if_exists="append",
-                             index=False, method="multi")
-                break
-            except SQLAlchemyError as error:
-                print(f"  batch at {start} failed ({type(error).__name__}), try {attempt}")
-                if attempt == TRIES:
-                    raise
-                time.sleep(2 * attempt)
+        batch.to_sql("service_requests_staging", engine, if_exists="append", index=False)
         if (start // BATCH) % 10 == 0:
             loaded = min(start + BATCH, total)
             print(f"  loaded {loaded:,} / {total:,}")
@@ -98,7 +88,7 @@ def count_matching_sample_rows(engine, df):
                "from service_requests_staging where unique_key = :k")
     with engine.connect() as conn:
         for _, csv_row in sample.iterrows():
-            db_row = conn.execute(sql, {"k": int(csv_row["unique_key"])}).one()
+            db_row = conn.execute(sql, {"k": int(csv_row["unique_key"])}).fetchone()
             same = True
             if db_row[0] != csv_row["agency"]:
                 same = False
@@ -119,7 +109,7 @@ def validate_staging(engine, df):
     with engine.connect() as conn:
         numbers["n_stage"] = conn.execute(text("select count(*) from service_requests_staging")).scalar()
         numbers["n_distinct"] = conn.execute(text("select count(distinct unique_key) from service_requests_staging")).scalar()
-        dates = conn.execute(text("select min(created_date), max(created_date) from service_requests_staging")).one()
+        dates = conn.execute(text("select min(created_date), max(created_date) from service_requests_staging")).fetchone()
         numbers["first_date"] = dates[0]
         numbers["last_date"] = dates[1]
         numbers["n_hours"] = conn.execute(text("select count(*) from service_requests_staging where resolution_hours is not null")).scalar()

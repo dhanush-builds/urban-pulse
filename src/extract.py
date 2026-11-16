@@ -1,7 +1,7 @@
 import json
 import os
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -56,16 +56,18 @@ def where_clause(month_start):
     next_month = next_month_start(month_start)
     low = max(month_start, START)
     # END is included, so the upper limit is the day after it
-    high = min(next_month, date.fromordinal(END.toordinal() + 1))
-    endings = []
-    for e in KEY_ENDINGS:
-        endings.append(f"unique_key like '%{e}'")
-    endings_text = " OR ".join(endings)
-    return (f"created_date >= '{low}T00:00:00' AND created_date < '{high}T00:00:00' "
-            f"AND ({endings_text})")
+    high = min(next_month, END + timedelta(days=1))
+    low_text = str(low) + "T00:00:00"
+    high_text = str(high) + "T00:00:00"
+    tests = []
+    for ending in KEY_ENDINGS:
+        tests.append("unique_key like '%" + ending + "'")
+    key_text = " OR ".join(tests)
+    return "created_date >= '" + low_text + "' AND created_date < '" + high_text + "' AND (" + key_text + ")"
 
 
 def get_page(params, headers):
+    # the API sometimes times out or fails, so wait and try again
     for attempt in range(1, MAX_TRIES + 1):
         try:
             r = requests.get(URL, params=params, headers=headers, timeout=TIMEOUT)
@@ -74,7 +76,7 @@ def get_page(params, headers):
             print(f"  http {r.status_code}, try {attempt}")
         except requests.RequestException as e:
             print(f"  {type(e).__name__}, try {attempt}")
-        time.sleep(min(2 ** attempt, 60))
+        time.sleep(5 * attempt)
     raise RuntimeError("API kept failing, giving up on this page")
 
 

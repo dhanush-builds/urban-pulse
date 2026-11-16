@@ -25,7 +25,7 @@ summary = {
     "n_valid": len(hours),
     "mean": hours.mean(),
     "median": q2,
-    "mode": hours.round(0).mode().iloc[0],  # whole hours, because exact values rarely repeat
+    "mode": hours.round(0).mode().iloc[0],  # whole hours, exact values rarely repeat
     "min": hours.min(),
     "max": hours.max(),
     "range": hours.max() - hours.min(),
@@ -46,6 +46,7 @@ summary = {
     "pct_above_high_fence": 100 * n_high / len(hours),
     "share_over_72h": 100 * (hours > 72).mean(),
 }
+# round every number to 3 decimals, counts stay whole
 rounded = {}
 for key in summary:
     value = summary[key]
@@ -58,7 +59,7 @@ Path("docs/stats_summary.json").write_text(json.dumps(summary, indent=2))
 
 print(summary)
 
-# charts
+# charts: histograms and boxplots
 plt.figure(figsize=(8, 4))
 plt.hist(hours[hours <= high_fence], bins=50, color="#3b6ea5")
 plt.xlabel("resolution hours (cut at the upper fence)")
@@ -79,18 +80,20 @@ plt.close()
 
 plt.figure(figsize=(8, 3))
 plt.boxplot(hours, orientation="horizontal", showfliers=True, flierprops={"markersize": 2})
-plt.xscale("symlog")
-plt.xlabel("resolution hours (symlog axis)")
+plt.xlabel("resolution hours")
 plt.title("Boxplot of resolution hours")
 plt.tight_layout()
 plt.savefig(fig_dir / "resolution_boxplot.png", dpi=130)
 plt.close()
 
+# only the 8 agencies with the most requests
 top_agencies = df["agency"].value_counts().head(8).index
 sub = df[df["agency"].isin(top_agencies) & df["resolution_hours"].notna()]
+# agencies sorted by their median time
 order = sub.groupby("agency")["resolution_hours"].median().sort_values().index
 plt.figure(figsize=(9, 4.5))
 agency_names = list(order)
+# one list of hours per agency, in the same order as the names
 agency_hours = []
 for name in agency_names:
     agency_hours.append(sub.loc[sub["agency"] == name, "resolution_hours"])
@@ -100,62 +103,3 @@ plt.title("Resolution time by agency (8 busiest)")
 plt.tight_layout()
 plt.savefig(fig_dir / "resolution_boxplot_by_agency.png", dpi=130)
 plt.close()
-
-# other numeric columns
-other = df[["latitude", "longitude", "created_hour"]].describe().round(4)
-
-# report
-s = summary
-if s["skewness"] > 1:
-    skew_word = "strongly right-skewed"
-elif s["skewness"] > 0.5:
-    skew_word = "moderately skewed"
-else:
-    skew_word = "roughly symmetric"
-lines = f"""# Statistical check: resolution_hours
-
-Valid resolution durations: **{s['n_valid']:,}** (closed requests where the closed date is not before the created date).
-
-## Central tendency and spread
-
-| Statistic | Hours |
-|---|---|
-| Mean | {s['mean']:,.2f} |
-| Median | {s['median']:,.2f} |
-| Mode (whole hours) | {s['mode']:,.0f} |
-| Minimum | {s['min']:,.2f} |
-| Maximum | {s['max']:,.1f} |
-| Range | {s['range']:,.1f} |
-| Q1 / Q3 | {s['q1']:,.2f} / {s['q3']:,.2f} |
-| IQR | {s['iqr']:,.2f} |
-| Variance | {s['variance']:,.0f} |
-| Standard deviation | {s['std']:,.1f} |
-| 90th / 95th / 99th percentile | {s['p90']:,.1f} / {s['p95']:,.1f} / {s['p99']:,.1f} |
-
-## Shape
-
-Skewness is **{s['skewness']:.2f}** and excess kurtosis is **{s['kurtosis']:.1f}**, so the distribution is {skew_word} with a very heavy tail.
-The mean ({s['mean']:,.1f} h) is far above the median ({s['median']:,.1f} h): a few very long cases pull the mean up, so the median is the fairer "typical" value.
-
-## IQR outlier screen
-
-- Lower fence: Q1 - 1.5 x IQR = {s['low_fence']:,.2f} h (below zero, so no value can fall under it)
-- Upper fence: Q3 + 1.5 x IQR = {s['high_fence']:,.2f} h
-- Above the upper fence: **{s['n_above_high_fence']:,}** requests ({s['pct_above_high_fence']:.1f}% of valid durations)
-
-These are flags for a closer look, not rows to delete. Long cases such as building repairs or tree work can be real.
-Share of valid durations over the project's 72-hour line: {s['share_over_72h']:.1f}%.
-
-## Other numeric fields
-
-{other.to_markdown()}
-
-## Charts
-
-![hist](figures/resolution_hist.png)
-![hist log](figures/resolution_hist_log.png)
-![box](figures/resolution_boxplot.png)
-![box by agency](figures/resolution_boxplot_by_agency.png)
-"""
-Path("docs/stats_report.md").write_text(lines)
-print("wrote docs/stats_report.md")

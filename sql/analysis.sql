@@ -47,6 +47,7 @@ GROUP BY status
 ORDER BY requests DESC;
 
 -- 8. Descriptive statistics of valid resolution hours
+-- percentile_cont finds the value at a given position in the sorted list (0.5 = the middle, the median)
 SELECT COUNT(resolution_hours)                                           AS n,
        ROUND(AVG(resolution_hours)::numeric, 2)                          AS mean,
        ROUND((PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY resolution_hours))::numeric, 2) AS median,
@@ -61,6 +62,7 @@ FROM service_requests
 WHERE resolution_hours IS NOT NULL;
 
 -- 9. Median resolution by complaint category (at least 100 valid cases)
+-- percentile_cont(0.5) gives the middle resolution time inside each complaint type
 SELECT complaint_type, COUNT(resolution_hours) AS n,
        ROUND((PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY resolution_hours))::numeric, 1) AS median_hours
 FROM service_requests
@@ -70,6 +72,7 @@ HAVING COUNT(resolution_hours) >= 100
 ORDER BY median_hours DESC;
 
 -- 10. Median resolution by agency
+-- percentile_cont(0.5) gives the middle resolution time inside each agency
 SELECT agency, COUNT(resolution_hours) AS n,
        ROUND((PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY resolution_hours))::numeric, 1) AS median_hours
 FROM service_requests
@@ -79,6 +82,7 @@ HAVING COUNT(resolution_hours) >= 100
 ORDER BY median_hours DESC;
 
 -- 11. IQR outlier investigation: fences overall, then who owns the outliers
+-- percentile_cont finds Q1 and Q3 to build the fences; FILTER counts only the rows above the upper fence
 WITH q AS (
     SELECT PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY resolution_hours) AS q1,
            PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY resolution_hours) AS q3
@@ -107,6 +111,7 @@ SELECT ROUND((
 FROM service_requests
 WHERE resolution_hours IS NOT NULL;
 
+-- SUM(COUNT(*)) OVER () is a window: it adds up all the band counts so each band can show its share in percent
 SELECT CASE
            WHEN resolution_hours <= 1   THEN '1  up to 1 h'
            WHEN resolution_hours <= 24  THEN '2  1-24 h'
@@ -152,6 +157,7 @@ GROUP BY borough
 ORDER BY grouping, closure_pct;
 
 -- 15. High volume AND long median resolution (both above the 75th percentile across categories)
+-- percentile_cont(0.5) gives each type's median; percentile_cont(0.75) then sets the "high" cut-off across types
 WITH cat AS (
     SELECT complaint_type, COUNT(*) AS requests,
            PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY resolution_hours) AS median_hours

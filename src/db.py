@@ -15,4 +15,4 @@ def get_engine(database=None):
     port = os.getenv("DB_PORT", "5432")
     name = database or os.getenv("DB_NAME", "urban_pulse_db")
     url = f"postgresql+psycopg2://{user}:{pw}@{host}:{port}/{name}"
-    return create_engine(url, pool_pre_ping=True)
+    return create_engine(url)

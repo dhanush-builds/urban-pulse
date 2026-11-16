@@ -11,10 +11,10 @@ empty_state(kpis(where, params)["total"])
 
 
 def grouped(col, limit=None):
-    sql = (f"select {col} as label, count(*) as requests from service_requests where {where} "
-           f"group by 1 order by 2 desc")
+    sql = "select " + col + " as label, count(*) as requests from service_requests"
+    sql = sql + " where " + where + " group by 1 order by 2 desc"
     if limit:
-        sql = sql + f" limit {limit}"
+        sql = sql + " limit " + str(limit)
     return query(sql, params)
 
 
@@ -37,7 +37,7 @@ with right:
     st.subheader("Agency workload")
     agencies = grouped("agency")
     st.plotly_chart(bars(agencies.head(10)), width="stretch")
-    st.caption(f"{len(agencies)} agencies in this selection, the 10 busiest are shown.")
+    st.caption(f"{len(agencies)} agencies in this selection, showing the 10 busiest.")
 
 left, right = st.columns(2)
 with left:
@@ -51,9 +51,9 @@ with right:
     st.dataframe(status, hide_index=True, width="stretch")
 
 st.subheader("Monthly trend")
-monthly = query(
-    f"select created_year_month as month, count(*) as requests from service_requests "
-    f"where {where} group by 1 order by 1", params)
+sql = "select created_year_month as month, count(*) as requests from service_requests"
+sql = sql + " where " + where + " group by 1 order by 1"
+monthly = query(sql, params)
 fig = px.line(monthly, x="month", y="requests", markers=True, color_discrete_sequence=[BLUE])
 fig.update_layout(xaxis_title=None, margin=dict(t=10))
 # start the axis at zero, a cut axis would make the February dip look worse than it is
@@ -61,18 +61,10 @@ fig.update_yaxes(rangemode="tozero")
 st.plotly_chart(fig, width="stretch")
 
 st.subheader("Demand by weekday and hour")
-heat = query(
-    f"select created_weekday_num as d, created_weekday as weekday, created_hour as hour, count(*) as requests "
-    f"from service_requests where {where} group by 1, 2, 3", params)
-grid = heat.pivot(index="weekday", columns="hour", values="requests").fillna(0)
+sql = "select created_weekday as weekday, created_hour as hour, count(*) as requests"
+sql = sql + " from service_requests where " + where + " group by 1, 2 order by 2"
+by_hour = query(sql, params)
 order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-days_present = []
-for day in order:
-    if day in grid.index:
-        days_present.append(day)
-grid = grid.reindex(days_present)
-fig = px.imshow(grid, aspect="auto", color_continuous_scale="Blues",
-                labels=dict(x="hour of day", y="", color="requests"))
-fig.update_layout(margin=dict(t=10))
+fig = px.line(by_hour, x="hour", y="requests", color="weekday", category_orders={"weekday": order})
+fig.update_layout(xaxis_title="hour of day", margin=dict(t=10))
 st.plotly_chart(fig, width="stretch")
-st.caption("Hour of the created timestamp exactly as recorded in the dataset.")
